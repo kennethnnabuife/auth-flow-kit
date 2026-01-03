@@ -21,13 +21,13 @@ import {
   getStoredAccessToken,
 } from "./http";
 
-const STORAGE_USER_KEY = "afk_user";
+const USER_KEY = "afk_user";
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
+  if (ctx === null) {
     throw new Error("useAuth must be used inside AuthProvider");
   }
   return ctx;
@@ -37,39 +37,38 @@ export function AuthProvider({
   config,
   children,
 }: PropsWithChildren<{ config: AuthProviderConfig }>) {
-  const { baseURL, endpoints, onLoginSuccess, onLogout } = config;
-
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  const { baseURL, endpoints, onLoginSuccess, onLogout } = config;
 
   const getToken = () => getStoredAccessToken();
 
+  // Initial restore
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_USER_KEY);
-    if (raw) {
-      setUser(JSON.parse(raw));
+    const stored = localStorage.getItem(USER_KEY);
+    if (stored !== null) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch {
+        localStorage.removeItem(USER_KEY);
+      }
     }
     setLoading(false);
   }, []);
 
-  const handlers = {
-    applyAuth(res: StandardAuthResponse) {
-      setStoredAccessToken(res.accessToken);
-      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(res.user));
-      setUser(res.user);
-      onLoginSuccess?.();
-    },
+  const handleAuthSuccess = (res: StandardAuthResponse) => {
+    setStoredAccessToken(res.accessToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+    setUser(res.user);
 
-    clearAuth() {
-      setStoredAccessToken(null);
-      localStorage.removeItem(STORAGE_USER_KEY);
-      setUser(null);
-      onLogout?.();
-    },
+    if (onLoginSuccess) {
+      onLoginSuccess();
+    }
   };
 
   const login: AuthContextType["login"] = async (email, password) => {
-    const res = await httpJSON<StandardAuthResponse>(
+    const response = await httpJSON<StandardAuthResponse>(
       makeURL(baseURL, endpoints.login),
       {
         method: "POST",
@@ -77,11 +76,11 @@ export function AuthProvider({
       }
     );
 
-    handlers.applyAuth(res);
+    handleAuthSuccess(response);
   };
 
   const signup: AuthContextType["signup"] = async (payload) => {
-    const res = await httpJSON<StandardAuthResponse>(
+    const response = await httpJSON<StandardAuthResponse>(
       makeURL(baseURL, endpoints.signup),
       {
         method: "POST",
@@ -89,11 +88,17 @@ export function AuthProvider({
       }
     );
 
-    handlers.applyAuth(res);
+    handleAuthSuccess(response);
   };
 
   const logout = () => {
-    handlers.clearAuth();
+    setStoredAccessToken(null);
+    localStorage.removeItem(USER_KEY);
+    setUser(null);
+
+    if (onLogout) {
+      onLogout();
+    }
   };
 
   const value = useMemo<AuthContextType>(
