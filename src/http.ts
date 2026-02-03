@@ -1,27 +1,24 @@
 /*
-  Internal HTTP utilities for auth-flow-kit.
+  auth-flow-kit — internal HTTP helpers
 
-  Purpose:
-  - makeURL: safely compose baseURL + endpoint
-  - getStoredAccessToken: read JWT from localStorage
-  - setStoredAccessToken: persist or clear JWT
-  - httpJSON: fetch wrapper with JSON handling + optional auth
+  This module is intentionally low-level and unopinionated.
+  It exists solely to support AuthProvider and auth-related screens.
 
-  IMPORTANT:
-  This file is internal to the library.
-  Do NOT import or modify it directly.
+  Exposed utilities:
+  - makeURL              → joins baseURL and endpoint safely
+  - getStoredAccessToken → retrieves persisted JWT
+  - setStoredAccessToken → persists or clears JWT
+  - httpJSON             → fetch wrapper with JSON + auth handling
 
-  It exists to keep authentication logic:
-  - predictable
-  - lightweight
-  - familiar to Redux Toolkit-style flows
+  ⚠️ Library consumers:
+  You should never import or modify this file directly.
 */
 
 export function makeURL(baseURL: string, path: string) {
-  const normalizedBase = baseURL.replace(/\/$/, "");
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const base = baseURL.replace(/\/$/, "");
+  const endpoint = path.startsWith("/") ? path : `/${path}`;
 
-  return `${normalizedBase}${normalizedPath}`;
+  return `${base}${endpoint}`;
 }
 
 export function getStoredAccessToken(): string | null {
@@ -34,14 +31,15 @@ export function getStoredAccessToken(): string | null {
 
 export function setStoredAccessToken(token: string | null) {
   try {
-    if (token) {
-      localStorage.setItem("afk_access_token", token);
+    if (!token) {
+      localStorage.removeItem("afk_access_token");
       return;
     }
 
-    localStorage.removeItem("afk_access_token");
+    localStorage.setItem("afk_access_token", token);
   } catch {
-    // Ignore storage failures (private mode, restricted environments, etc.)
+    // Storage access can fail in restricted environments.
+    // This is non-fatal for auth-flow-kit internals.
   }
 }
 
@@ -50,21 +48,21 @@ export async function httpJSON<T>(
   opts: RequestInit = {},
   withAuth = false,
 ): Promise<T> {
-  const headers: Record<string, string> = {
+  const baseHeaders: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (withAuth) {
-    const token = getStoredAccessToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+    const accessToken = getStoredAccessToken();
+    if (accessToken) {
+      baseHeaders["Authorization"] = `Bearer ${accessToken}`;
     }
   }
 
   const response = await fetch(url, {
     ...opts,
     headers: {
-      ...headers,
+      ...baseHeaders,
       ...(opts.headers || {}),
     },
   });
@@ -75,10 +73,10 @@ export async function httpJSON<T>(
 
     if (contentType.includes("application/json")) {
       try {
-        const data = await response.json();
-        if (data?.message) message = data.message;
+        const payload = await response.json();
+        if (payload?.message) message = payload.message;
       } catch {
-        // Ignore malformed JSON errors
+        // Ignore invalid JSON error payloads
       }
     }
 
