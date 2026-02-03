@@ -193,6 +193,23 @@ export default function SignupScreen() {
         />
       </div>
 
+      <p
+        style={{
+          textAlign: "center",
+          fontSize: 13,
+          color: "#4b4bff",
+          cursor: "pointer",
+          marginBottom: 24,
+        }}
+        onClick={() => {
+          // This allows parent components to handle navigation
+          // Developers can override this behavior in their app
+          window.dispatchEvent(new CustomEvent("auth-flow-kit:navigate-to-login"));
+        }}
+      >
+        Already have an account? Sign in
+      </p>
+
       <button
         disabled={submitting}
         type="submit"
