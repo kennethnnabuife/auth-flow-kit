@@ -49,8 +49,9 @@ export default function LoginScreen() {
 
     try {
       await login(trimmedEmail, trimmedPassword);
-    } catch (err: any) {
-      setError(err?.message || "Login failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      setError(message);
     } finally {
       setSubmitting(false);
     }
