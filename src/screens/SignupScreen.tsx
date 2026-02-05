@@ -7,8 +7,25 @@ export default function SignupScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  const getPasswordStrength = (value: string) => {
+    let score = 0;
+    if (value.length >= 8) score++;
+    if (/[A-Z]/.test(value)) score++;
+    if (/[0-9]/.test(value)) score++;
+    if (/[^A-Za-z0-9]/.test(value)) score++;
+
+    if (!value) return { label: "", color: "" };
+    if (score <= 1) return { label: "Weak", color: "crimson" };
+    if (score === 2) return { label: "Medium", color: "#f39c12" };
+    return { label: "Strong", color: "#2ecc71" };
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,9 +35,46 @@ export default function SignupScreen() {
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
     const trimmedName = name.trim();
+    const trimmedConfirm = confirmPassword.trim();
 
-    if (!trimmedEmail || !trimmedPassword || !trimmedName) {
-      setError("Email and password cannot be empty.");
+    if (!trimmedName) {
+      setError("Name is required.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!trimmedEmail) {
+      setError("Email is required.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setError("Enter a valid email address.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!trimmedPassword) {
+      setError("Password is required.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (trimmedPassword.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!trimmedConfirm) {
+      setError("Please confirm your password.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (trimmedPassword !== trimmedConfirm) {
+      setError("Passwords do not match.");
       setSubmitting(false);
       return;
     }
@@ -70,6 +124,7 @@ export default function SignupScreen() {
 
       <div style={{ position: "relative", marginBottom: 26 }}>
         <label
+          htmlFor="afk-signup-name"
           style={{
             position: "absolute",
             top: "-10px",
@@ -85,6 +140,7 @@ export default function SignupScreen() {
         </label>
 
         <input
+          id="afk-signup-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Your name"
@@ -111,6 +167,7 @@ export default function SignupScreen() {
 
       <div style={{ position: "relative", marginBottom: 26 }}>
         <label
+          htmlFor="afk-signup-email"
           style={{
             position: "absolute",
             top: "-10px",
@@ -126,6 +183,7 @@ export default function SignupScreen() {
         </label>
 
         <input
+          id="afk-signup-email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
@@ -153,6 +211,7 @@ export default function SignupScreen() {
 
       <div style={{ position: "relative", marginBottom: 26 }}>
         <label
+          htmlFor="afk-signup-password"
           style={{
             position: "absolute",
             top: "-10px",
@@ -168,6 +227,7 @@ export default function SignupScreen() {
         </label>
 
         <input
+          id="afk-signup-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           type="password"
@@ -191,6 +251,72 @@ export default function SignupScreen() {
             e.currentTarget.style.boxShadow = "0 0 0 transparent";
           }}
         />
+      </div>
+
+      <div style={{ position: "relative", marginBottom: 18 }}>
+        <label
+          htmlFor="afk-signup-confirm-password"
+          style={{
+            position: "absolute",
+            top: "-10px",
+            left: "14px",
+            background: "rgba(255,255,255,0.85)",
+            padding: "0 6px",
+            fontSize: 13,
+            color: "#444",
+            borderRadius: 6,
+          }}
+        >
+          Confirm password
+        </label>
+
+        <input
+          id="afk-signup-confirm-password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          type="password"
+          placeholder="Repeat your password"
+          style={{
+            width: "80%",
+            padding: "14px 16px",
+            borderRadius: 12,
+            border: "1px solid #d2d2d2",
+            fontSize: 15,
+            outline: "none",
+            transition: "0.25s",
+            background: "rgba(255,255,255,0.85)",
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.border = "1px solid #4b4bff";
+            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.border = "1px solid #d2d2d2";
+            e.currentTarget.style.boxShadow = "0 0 0 transparent";
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          marginBottom: 20,
+          fontSize: 12,
+          color: "#555",
+        }}
+      >
+        <p style={{ marginBottom: 6 }}>
+          Use at least 8 characters, including letters, numbers, and symbols.
+        </p>
+        {password && (
+          <p
+            style={{
+              fontWeight: 600,
+              color: getPasswordStrength(password).color,
+            }}
+          >
+            Password strength: {getPasswordStrength(password).label}
+          </p>
+        )}
       </div>
 
       <p
@@ -236,6 +362,8 @@ export default function SignupScreen() {
 
       {error && (
         <p
+          role="alert"
+          aria-live="polite"
           style={{
             marginTop: 18,
             color: "crimson",

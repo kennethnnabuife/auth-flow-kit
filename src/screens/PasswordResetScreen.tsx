@@ -10,21 +10,38 @@ export default function PasswordResetScreen() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
   const requestReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      setError("Email is required.");
+      return;
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
 
     try {
       const url = makeURL(config.baseURL, config.endpoints.forgot);
 
       await httpJSON(url, {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: trimmedEmail }),
       });
 
       setSent(true);
-    } catch (err: any) {
-      setError(err?.message || "Failed to request reset");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to request reset";
+      setError(message);
     }
   };
 
@@ -63,6 +80,7 @@ export default function PasswordResetScreen() {
 
       <div style={{ position: "relative", marginBottom: 26 }}>
         <label
+          htmlFor="afk-reset-email"
           style={{
             position: "absolute",
             top: sent ? "-18px" : "-10px",
@@ -78,6 +96,7 @@ export default function PasswordResetScreen() {
         </label>
 
         <input
+          id="afk-reset-email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
@@ -143,6 +162,8 @@ export default function PasswordResetScreen() {
 
       {error && (
         <p
+          role="alert"
+          aria-live="polite"
           style={{
             marginTop: 20,
             color: "crimson",
