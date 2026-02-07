@@ -17,15 +17,16 @@
 */
 
 export function makeURL(baseURL: string, path: string) {
-  const normalizedBase = baseURL.replace(/\/$/, "");
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const cleanBase = baseURL.replace(/\/$/, "");
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
 
-  return `${normalizedBase}${normalizedPath}`;
+  return `${cleanBase}${cleanPath}`;
 }
 
 export function getStoredAccessToken(): string | null {
   try {
-    return localStorage.getItem("afk_access_token");
+    const token = localStorage.getItem("afk_access_token");
+    return token;
   } catch {
     return null;
   }
@@ -35,12 +36,11 @@ export function setStoredAccessToken(token: string | null) {
   try {
     if (token !== null) {
       localStorage.setItem("afk_access_token", token);
-      return;
+    } else {
+      localStorage.removeItem("afk_access_token");
     }
-
-    localStorage.removeItem("afk_access_token");
   } catch {
-    // Ignore storage errors (Safari private mode, etc.)
+    // Ignore storage failures (private mode, disabled storage, etc.)
   }
 }
 
@@ -56,57 +56,61 @@ export async function httpJSON<T>(
   if (withAuth === true) {
     const token = getStoredAccessToken();
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      headers.Authorization = `Bearer ${token}`;
     }
   }
 
-  const response = await fetch(url, {
+  const requestInit: RequestInit = {
     ...opts,
     headers: {
       ...headers,
       ...(opts.headers || {}),
     },
-  });
+  };
 
-  if (response.ok) {
-    return response.json() as Promise<T>;
-  }
+  const res = await fetch(url, requestInit);
 
-  let message = `Request failed (${response.status})`;
-  const contentType = response.headers.get("content-type") || "";
+  if (res.ok !== true) {
+    let message = `Request failed (${res.status})`;
+    const contentType = res.headers.get("content-type") ?? "";
 
-  if (contentType.includes("application/json")) {
-    try {
-      const data = await response.json();
-      if (data?.message) {
-        message = data.message;
+    if (contentType.includes("application/json")) {
+      try {
+        const data = await res.json();
+        if (data?.message) {
+          message = data.message;
+        }
+      } catch {
+        // swallow JSON parsing errors
       }
-    } catch {
-      // Ignore JSON parse errors
     }
-  }
 
-  if (contentType.includes("text/html")) {
-    if (response.status === 404 && url.includes("forgot")) {
-      message =
-        "The forgot password endpoint you added in config.endpoints.forgot does not exist in your server. Please check and update your config.endpoints.forgot";
-    } else {
-      message = "Unexpected server error";
+    if (contentType.includes("text/html")) {
+      const isForgot = res.status === 404 && url.includes("forgot");
+
+      if (isForgot) {
+        message =
+          "The forgot password endpoint you added in config.endpoints.forgot does not exist in your server. Please check and update your config.endpoints.forgot";
+      } else {
+        message = "Unexpected server error";
+      }
     }
+
+    if (res.status === 404 && url.includes("forgot")) {
+      console.error(
+        `[auth-flow-kit] Password reset endpoint not found.
+
+        Expected a POST route matching:
+          ${url}
+
+        Fix this by either:
+        - Adding the route on your backend, or
+        - Updating config.endpoints.forgot`,
+      );
+    }
+
+    throw new Error(message);
   }
 
-  if (response.status === 404 && url.includes("forgot")) {
-    console.error(
-      `[auth-flow-kit] Password reset endpoint not found.
-
-Expected a POST route matching:
-  ${url}
-
-Fix this by either:
-- Adding the route on your backend, or
-- Updating config.endpoints.forgot`,
-    );
-  }
-
-  throw new Error(message);
+  return res.json() as Promise<T>;
 }
