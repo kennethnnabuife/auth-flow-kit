@@ -4,7 +4,7 @@ Developers using this library should wrap their app with:
     <App />
   </AuthProvider>
  
-  Then they can access auth anywhere with:
+  When they do this, then can be able to access auth anywhere with:
   const { user, login, logout, getToken } = useAuth();
 */
 
@@ -112,7 +112,7 @@ export function AuthProvider({
       getToken,
       config,
     }),
-    [user, loading, config]
+    [user, loading, config],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
