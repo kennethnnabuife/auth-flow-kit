@@ -17,16 +17,15 @@
 */
 
 export function makeURL(baseURL: string, path: string) {
-  const cleanBase = baseURL.replace(/\/$/, "");
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const base = baseURL.replace(/\/$/, "");
+  const suffix = path.startsWith("/") ? path : `/${path}`;
 
-  return `${cleanBase}${cleanPath}`;
+  return `${base}${suffix}`;
 }
 
 export function getStoredAccessToken(): string | null {
   try {
-    const token = localStorage.getItem("afk_access_token");
-    return token;
+    return localStorage.getItem("afk_access_token");
   } catch {
     return null;
   }
@@ -34,13 +33,14 @@ export function getStoredAccessToken(): string | null {
 
 export function setStoredAccessToken(token: string | null) {
   try {
-    if (token !== null) {
+    if (token) {
       localStorage.setItem("afk_access_token", token);
-    } else {
-      localStorage.removeItem("afk_access_token");
+      return;
     }
+
+    localStorage.removeItem("afk_access_token");
   } catch {
-    // Ignore storage failures (private mode, disabled storage, etc.)
+    // Storage may be unavailable (private mode, browser restrictions, etc.)
   }
 }
 
@@ -53,42 +53,38 @@ export async function httpJSON<T>(
     "Content-Type": "application/json",
   };
 
-  if (withAuth === true) {
-    const token = getStoredAccessToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
+  if (withAuth) {
+    const storedToken = getStoredAccessToken();
+    if (storedToken) {
+      headers["Authorization"] = `Bearer ${storedToken}`;
     }
   }
 
-  const requestInit: RequestInit = {
+  const res = await fetch(url, {
     ...opts,
     headers: {
       ...headers,
       ...(opts.headers || {}),
     },
-  };
+  });
 
-  const res = await fetch(url, requestInit);
-
-  if (res.ok !== true) {
+  if (!res.ok) {
     let message = `Request failed (${res.status})`;
-    const contentType = res.headers.get("content-type") ?? "";
+    const contentType = res.headers.get("content-type") || "";
 
     if (contentType.includes("application/json")) {
       try {
-        const data = await res.json();
-        if (data?.message) {
-          message = data.message;
+        const body = await res.json();
+        if (body?.message) {
+          message = body.message;
         }
       } catch {
-        // swallow JSON parsing errors
+        // ignore malformed JSON responses
       }
     }
 
     if (contentType.includes("text/html")) {
-      const isForgot = res.status === 404 && url.includes("forgot");
-
-      if (isForgot) {
+      if (res.status === 404 && url.includes("forgot")) {
         message =
           "The forgot password endpoint you added in config.endpoints.forgot does not exist in your server. Please check and update your config.endpoints.forgot";
       } else {
