@@ -180,7 +180,7 @@ export default function LoginScreen() {
           }}
           onFocus={(e) => {
             e.currentTarget.style.border = "1px solid #4b4bff";
-            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
+            e.currentTargett.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
           }}
           onBlur={(e) => {
             e.currentTarget.style.border = "1px solid #d2d2d2";
@@ -189,18 +189,27 @@ export default function LoginScreen() {
         />
       </div>
 
-      <p
-        onClick={() => setShowReset(true)}
+      <div
         style={{
-          textAlign: "right",
-          fontSize: 13,
-          color: "#4b4bff",
-          cursor: "pointer",
-          marginBottom: 24,
+          textAlign: 'right',
         }}
       >
-        Forgot password?
-      </p>
+        <button
+          onClick={() => setShowReset(true)}
+          style={{
+            textAlign: "right",
+            fontSize: 13,
+            color: "#4b4bff",
+            cursor: "pointer",
+            marginBottom: 24,
+            width: "fit-content",
+            border: 'none',
+            background: 'none',
+          }}
+        >
+          Forgot password?
+        </button>
+      </div>
 
       <button
         disabled={submitting}
