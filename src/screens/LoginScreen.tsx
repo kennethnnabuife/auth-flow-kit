@@ -180,7 +180,7 @@ export default function LoginScreen() {
           }}
           onFocus={(e) => {
             e.currentTarget.style.border = "1px solid #4b4bff";
-            e.currentTargett.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
+            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
           }}
           onBlur={(e) => {
             e.currentTarget.style.border = "1px solid #d2d2d2";
@@ -191,7 +191,7 @@ export default function LoginScreen() {
 
       <div
         style={{
-          textAlign: 'right',
+          textAlign: "right",
         }}
       >
         <button
@@ -203,8 +203,8 @@ export default function LoginScreen() {
             cursor: "pointer",
             marginBottom: 24,
             width: "fit-content",
-            border: 'none',
-            background: 'none',
+            border: "none",
+            background: "none",
           }}
         >
           Forgot password?
