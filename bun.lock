@@ -1,12 +1,9 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "auth-flow-kit",
-      "dependencies": {
-        "react": "^19.2.0",
-        "react-dom": "^19.2.0",
-      },
       "devDependencies": {
         "@eslint/js": "^9.39.1",
         "@types/node": "^24.10.0",
@@ -22,6 +19,10 @@
         "typescript": "~5.9.3",
         "typescript-eslint": "^8.46.3",
         "vite": "^7.2.2",
+      },
+      "peerDependencies": {
+        "react": ">=17.0.0",
+        "react-dom": ">=17.0.0",
       },
     },
   },
