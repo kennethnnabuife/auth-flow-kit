@@ -55,4 +55,6 @@ If declined:
 Please allow us time to investigate and fix the issue before public disclosure.  
 Do not exploit vulnerabilities beyond what is necessary to demonstrate them.
 
-Thank you for helping keep auth-flow-flow secure.
+Thank you for helping keep auth-flow-kit secure.
+
+
