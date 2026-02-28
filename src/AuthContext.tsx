@@ -1,19 +1,10 @@
-/* 
-Developers using this library should wrap their app with:
-  <AuthProvider config={...}>
-    <App />
-  </AuthProvider>
- 
-  When they do this, then can be able to access auth anywhere with:
-  const { user, login, logout, getToken } = useAuth();
-*/
-
 import React, {
   createContext,
   useContext,
   useEffect,
   useMemo,
   useState,
+  useCallback,
 } from "react";
 
 import {
@@ -30,12 +21,14 @@ import {
   getStoredAccessToken,
 } from "./http";
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function useAuth(): AuthContextType {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }
 
 export function AuthProvider({
@@ -44,63 +37,70 @@ export function AuthProvider({
 }: React.PropsWithChildren<{ config: AuthProviderConfig }>) {
   const { baseURL, endpoints, onLoginSuccess, onLogout } = config;
 
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem("afk_user");
+    return stored ? JSON.parse(stored) : null;
+  });
+
   const [loading, setLoading] = useState(true);
 
-  const getToken = () => getStoredAccessToken();
-
-  // Restore user from localStorage on app load
-  useEffect(() => {
-    const savedUser = localStorage.getItem("afk_user");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+  const getToken = useCallback(() => {
+    return getStoredAccessToken();
   }, []);
 
-  // LOGIN
-  const login: AuthContextType["login"] = async (email, password) => {
-    const url = makeURL(baseURL, endpoints.login);
+  // Centralized success handler (used by login + signup)
+  const handleAuthSuccess = useCallback(
+    (res: StandardAuthResponse) => {
+      setStoredAccessToken(res.accessToken);
+      localStorage.setItem("afk_user", JSON.stringify(res.user));
+      setUser(res.user);
 
-    const res = await httpJSON<StandardAuthResponse>(url, {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
+      onLoginSuccess?.();
+    },
+    [onLoginSuccess],
+  );
 
-    // store token + user
-    setStoredAccessToken(res.accessToken);
-    localStorage.setItem("afk_user", JSON.stringify(res.user));
+  // Generic auth request helper
+  const authenticate = useCallback(
+    async (endpoint: string, body: unknown) => {
+      const url = makeURL(baseURL, endpoint);
 
-    setUser(res.user);
+      const response = await httpJSON<StandardAuthResponse>(url, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
 
-    if (onLoginSuccess) onLoginSuccess();
-  };
+      handleAuthSuccess(response);
+    },
+    [baseURL, handleAuthSuccess],
+  );
 
-  // SIGNUP
-  const signup: AuthContextType["signup"] = async (payload) => {
-    const url = makeURL(baseURL, endpoints.signup);
+  const login: AuthContextType["login"] = useCallback(
+    async (email, password) => {
+      await authenticate(endpoints.login, { email, password });
+    },
+    [authenticate, endpoints.login],
+  );
 
-    const res = await httpJSON<StandardAuthResponse>(url, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+  const signup: AuthContextType["signup"] = useCallback(
+    async (payload) => {
+      await authenticate(endpoints.signup, payload);
+    },
+    [authenticate, endpoints.signup],
+  );
 
-    setStoredAccessToken(res.accessToken);
-    localStorage.setItem("afk_user", JSON.stringify(res.user));
-
-    setUser(res.user);
-
-    if (onLoginSuccess) onLoginSuccess();
-  };
-
-  // LOGOUT
-  const logout = () => {
+  const logout = useCallback(() => {
     setStoredAccessToken(null);
     localStorage.removeItem("afk_user");
     setUser(null);
 
-    if (onLogout) onLogout();
-  };
+    onLogout?.();
+  }, [onLogout]);
+
+  // Simulate hydration complete
+  useEffect(() => {
+    setLoading(false);
+  }, []);
 
   const value = useMemo<AuthContextType>(
     () => ({
@@ -112,7 +112,7 @@ export function AuthProvider({
       getToken,
       config,
     }),
-    [user, loading, config],
+    [user, loading, login, signup, logout, getToken, config],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
