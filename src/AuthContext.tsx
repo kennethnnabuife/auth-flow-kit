@@ -3,8 +3,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useState,
-  useCallback,
+  useReducer,
 } from "react";
 
 import {
@@ -21,15 +20,55 @@ import {
   getStoredAccessToken,
 } from "./http";
 
+/* -----------------------------
+   Types
+--------------------------------*/
+
+type AuthState = {
+  user: User | null;
+  loading: boolean;
+};
+
+type AuthAction =
+  | { type: "INIT"; payload: User | null }
+  | { type: "AUTH_SUCCESS"; payload: User }
+  | { type: "LOGOUT" };
+
+/* -----------------------------
+   Reducer
+--------------------------------*/
+
+function authReducer(state: AuthState, action: AuthAction): AuthState {
+  switch (action.type) {
+    case "INIT":
+      return { user: action.payload, loading: false };
+
+    case "AUTH_SUCCESS":
+      return { ...state, user: action.payload };
+
+    case "LOGOUT":
+      return { ...state, user: null };
+
+    default:
+      return state;
+  }
+}
+
+/* -----------------------------
+   Context
+--------------------------------*/
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function useAuth(): AuthContextType {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  return ctx;
 }
+
+/* -----------------------------
+   Provider
+--------------------------------*/
 
 export function AuthProvider({
   config,
@@ -37,83 +76,87 @@ export function AuthProvider({
 }: React.PropsWithChildren<{ config: AuthProviderConfig }>) {
   const { baseURL, endpoints, onLoginSuccess, onLogout } = config;
 
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem("afk_user");
-    return stored ? JSON.parse(stored) : null;
+  const [state, dispatch] = useReducer(authReducer, {
+    user: null,
+    loading: true,
   });
 
-  const [loading, setLoading] = useState(true);
+  /* -----------------------------
+     Initialize from storage
+  --------------------------------*/
+  useEffect(() => {
+    const stored = localStorage.getItem("afk_user");
+    const parsed = stored ? JSON.parse(stored) : null;
 
-  const getToken = useCallback(() => {
-    return getStoredAccessToken();
+    dispatch({ type: "INIT", payload: parsed });
   }, []);
 
-  // Centralized success handler (used by login + signup)
-  const handleAuthSuccess = useCallback(
-    (res: StandardAuthResponse) => {
-      setStoredAccessToken(res.accessToken);
-      localStorage.setItem("afk_user", JSON.stringify(res.user));
-      setUser(res.user);
+  /* -----------------------------
+     Shared Auth Handler
+  --------------------------------*/
+  async function performAuth(
+    endpoint: string,
+    body: unknown,
+  ): Promise<void> {
+    const url = makeURL(baseURL, endpoint);
 
-      onLoginSuccess?.();
-    },
-    [onLoginSuccess],
-  );
+    const res = await httpJSON<StandardAuthResponse>(url, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
 
-  // Generic auth request helper
-  const authenticate = useCallback(
-    async (endpoint: string, body: unknown) => {
-      const url = makeURL(baseURL, endpoint);
+    // persist
+    setStoredAccessToken(res.accessToken);
+    localStorage.setItem("afk_user", JSON.stringify(res.user));
 
-      const response = await httpJSON<StandardAuthResponse>(url, {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+    dispatch({ type: "AUTH_SUCCESS", payload: res.user });
 
-      handleAuthSuccess(response);
-    },
-    [baseURL, handleAuthSuccess],
-  );
+    onLoginSuccess?.();
+  }
 
-  const login: AuthContextType["login"] = useCallback(
-    async (email, password) => {
-      await authenticate(endpoints.login, { email, password });
-    },
-    [authenticate, endpoints.login],
-  );
+  /* -----------------------------
+     Public Methods
+  --------------------------------*/
 
-  const signup: AuthContextType["signup"] = useCallback(
-    async (payload) => {
-      await authenticate(endpoints.signup, payload);
-    },
-    [authenticate, endpoints.signup],
-  );
+  const login: AuthContextType["login"] = (email, password) => {
+    return performAuth(endpoints.login, { email, password });
+  };
 
-  const logout = useCallback(() => {
+  const signup: AuthContextType["signup"] = (payload) => {
+    return performAuth(endpoints.signup, payload);
+  };
+
+  const logout = () => {
     setStoredAccessToken(null);
     localStorage.removeItem("afk_user");
-    setUser(null);
+
+    dispatch({ type: "LOGOUT" });
 
     onLogout?.();
-  }, [onLogout]);
+  };
 
-  // Simulate hydration complete
-  useEffect(() => {
-    setLoading(false);
-  }, []);
+  const getToken = () => getStoredAccessToken();
+
+  /* -----------------------------
+     Memoized Context Value
+  --------------------------------*/
 
   const value = useMemo<AuthContextType>(
     () => ({
-      user,
-      loading,
+      user: state.user,
+      loading: state.loading,
       login,
       signup,
       logout,
       getToken,
       config,
     }),
-    [user, loading, login, signup, logout, getToken, config],
+    [state, config],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
