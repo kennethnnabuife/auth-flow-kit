@@ -1,37 +1,34 @@
 "use client";
 
-/*
-Protected component
-
-Wraps authenticated content and prevents rendering when unauthenticated.
-
-IMPORTANT:
-This component does NOT hard-redirect by default.
-Navigation should be handled by the host application (router or state).
-
-If redirectTo is provided AND the host app supports routing,
-a redirect will occur.
-*/
-
-import React, { useEffect } from "react";
+import React from "react";
 import { useAuth } from "./AuthContext";
 
 type ProtectedProps = {
   children: React.ReactNode;
   redirectTo?: string;
+  fallback?: React.ReactNode;
 };
 
-export default function Protected({ children, redirectTo }: ProtectedProps) {
+export default function Protected({
+  children,
+  redirectTo,
+  fallback = <div>Loading...</div>,
+}: ProtectedProps) {
   const { user, loading } = useAuth();
 
-  useEffect(() => {
-    if (!loading && !user && redirectTo) {
-      window.location.href = redirectTo;
+  // 1️⃣ Loading state
+  if (loading) {
+    return <>{fallback}</>;
+  }
+
+  // 2️⃣ Not authenticated
+  if (!user) {
+    if (redirectTo && typeof window !== "undefined") {
+      window.location.replace(redirectTo);
     }
-  }, [loading, user, redirectTo]);
+    return null;
+  }
 
-  if (loading) return <div>Loading...</div>;
-  if (!user) return null;
-
+  // 3️⃣ Authorized
   return <>{children}</>;
 }
