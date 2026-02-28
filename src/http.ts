@@ -17,10 +17,9 @@
 */
 
 export function makeURL(baseURL: string, path: string) {
-  const base = baseURL.replace(/\/$/, "");
-  const suffix = path.startsWith("/") ? path : `/${path}`;
-
-  return `${base}${suffix}`;
+  return `${baseURL.replace(/\/$/, "")}${
+    path.startsWith("/") ? path : `/${path}`
+  }`;
 }
 
 export function getStoredAccessToken(): string | null {
@@ -33,14 +32,10 @@ export function getStoredAccessToken(): string | null {
 
 export function setStoredAccessToken(token: string | null) {
   try {
-    if (token) {
-      localStorage.setItem("afk_access_token", token);
-      return;
-    }
-
-    localStorage.removeItem("afk_access_token");
+    if (token) localStorage.setItem("afk_access_token", token);
+    else localStorage.removeItem("afk_access_token");
   } catch {
-    // Storage may be unavailable (private mode, browser restrictions, etc.)
+    // Gonna ignore storage errors (Safari private mode, etc.) for now, not exactly needed.
   }
 }
 
@@ -54,35 +49,30 @@ export async function httpJSON<T>(
   };
 
   if (withAuth) {
-    const storedToken = getStoredAccessToken();
-    if (storedToken) {
-      headers["Authorization"] = `Bearer ${storedToken}`;
-    }
+    const tok = getStoredAccessToken();
+    if (tok) headers["Authorization"] = `Bearer ${tok}`;
   }
 
   const res = await fetch(url, {
     ...opts,
-    headers: {
-      ...headers,
-      ...(opts.headers || {}),
-    },
+    headers: { ...headers, ...(opts.headers || {}) },
   });
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     const contentType = res.headers.get("content-type") || "";
 
+    // Backend returned JSON error
     if (contentType.includes("application/json")) {
       try {
-        const body = await res.json();
-        if (body?.message) {
-          message = body.message;
-        }
+        const data = await res.json();
+        if (data?.message) message = data.message;
       } catch {
-        // ignore malformed JSON responses
+        // ignore JSON parse errors, cos not important to me now
       }
     }
 
+    // Backend returned HTML (Express default error pages)
     if (contentType.includes("text/html")) {
       if (res.status === 404 && url.includes("forgot")) {
         message =
@@ -92,6 +82,7 @@ export async function httpJSON<T>(
       }
     }
 
+    // Developer-only guidance
     if (res.status === 404 && url.includes("forgot")) {
       console.error(
         `[auth-flow-kit] Password reset endpoint not found.
