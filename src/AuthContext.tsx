@@ -4,7 +4,7 @@ Developers using this library should wrap their app with:
     <App />
   </AuthProvider>
  
-  When they do this, then can be able to access auth anywhere with:
+  When they do this, then can be able to access auth anywhere by applying:
   const { user, login, logout, getToken } = useAuth();
 */
 
