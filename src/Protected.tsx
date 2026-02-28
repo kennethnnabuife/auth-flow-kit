@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useAuth } from "./AuthContext";
+import { useProtected } from "./useProtected";
 
 type ProtectedProps = {
   children: React.ReactNode;
@@ -14,21 +14,10 @@ export default function Protected({
   redirectTo,
   fallback = <div>Loading...</div>,
 }: ProtectedProps) {
-  const { user, loading } = useAuth();
+  const { loading, isAuthenticated } = useProtected({ redirectTo });
 
-  // 1️⃣ Loading state
-  if (loading) {
-    return <>{fallback}</>;
-  }
+  if (loading) return <>{fallback}</>;
+  if (!isAuthenticated) return null;
 
-  // 2️⃣ Not authenticated
-  if (!user) {
-    if (redirectTo && typeof window !== "undefined") {
-      window.location.replace(redirectTo);
-    }
-    return null;
-  }
-
-  // 3️⃣ Authorized
   return <>{children}</>;
 }
