@@ -1,46 +1,37 @@
 "use client";
 
-<<<<<<< HEAD
-import { useEffect } from "react";
-import { useAuth } from "./AuthContext";
-=======
-import React from "react";
-import { useProtected } from "./useProtected";
->>>>>>> 15a5247305f90e9cbcb1eb5d0d5886df66a7469e
+/*
+Protected component
 
-type UseProtectedOptions = {
+Wraps authenticated content and prevents rendering when unauthenticated.
+
+IMPORTANT:
+This component does NOT hard-redirect by default.
+Navigation should be handled by the host application (router or state).
+
+If redirectTo is provided AND the host app supports routing,
+a redirect will occur.
+*/
+
+import React, { useEffect } from "react";
+import { useAuth } from "./AuthContext";
+
+type ProtectedProps = {
+  children: React.ReactNode;
   redirectTo?: string;
-  fallback?: React.ReactNode;
 };
 
-<<<<<<< HEAD
-export function useProtected({ redirectTo }: UseProtectedOptions) {
+export default function Protected({ children, redirectTo }: ProtectedProps) {
   const { user, loading } = useAuth();
 
-  const isAuthenticated = !!user;
-  const isReady = !loading;
-
   useEffect(() => {
-    if (isReady && !isAuthenticated && redirectTo) {
-      window.location.replace(redirectTo);
+    if (!loading && !user && redirectTo) {
+      window.location.href = redirectTo;
     }
-  }, [isReady, isAuthenticated, redirectTo]);
+  }, [loading, user, redirectTo]);
 
-  return {
-    loading,
-    isAuthenticated,
-  };
-=======
-export default function Protected({
-  children,
-  redirectTo,
-  fallback = <div>Loading...</div>,
-}: ProtectedProps) {
-  const { loading, isAuthenticated } = useProtected({ redirectTo });
-
-  if (loading) return <>{fallback}</>;
-  if (!isAuthenticated) return null;
+  if (loading) return <div>Loading...</div>;
+  if (!user) return null;
 
   return <>{children}</>;
->>>>>>> 15a5247305f90e9cbcb1eb5d0d5886df66a7469e
 }
