@@ -1,9 +1,8 @@
 import React, {
   createContext,
   useContext,
-  useEffect,
   useMemo,
-  useReducer,
+  useState,
 } from "react";
 
 import {
@@ -21,40 +20,6 @@ import {
 } from "./http";
 
 /* -----------------------------
-   Types
---------------------------------*/
-
-type AuthState = {
-  user: User | null;
-  loading: boolean;
-};
-
-type AuthAction =
-  | { type: "INIT"; payload: User | null }
-  | { type: "AUTH_SUCCESS"; payload: User }
-  | { type: "LOGOUT" };
-
-/* -----------------------------
-   Reducer
---------------------------------*/
-
-function authReducer(state: AuthState, action: AuthAction): AuthState {
-  switch (action.type) {
-    case "INIT":
-      return { user: action.payload, loading: false };
-
-    case "AUTH_SUCCESS":
-      return { ...state, user: action.payload };
-
-    case "LOGOUT":
-      return { ...state, user: null };
-
-    default:
-      return state;
-  }
-}
-
-/* -----------------------------
    Context
 --------------------------------*/
 
@@ -62,7 +27,9 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  if (!ctx) {
+    throw new Error("useAuth must be used inside AuthProvider");
+  }
   return ctx;
 }
 
@@ -76,82 +43,96 @@ export function AuthProvider({
 }: React.PropsWithChildren<{ config: AuthProviderConfig }>) {
   const { baseURL, endpoints, onLoginSuccess, onLogout } = config;
 
-  const [state, dispatch] = useReducer(authReducer, {
-    user: null,
-    loading: true,
+  /* -----------------------------
+     Lazy Initialization
+  --------------------------------*/
+
+  const [authState, setAuthState] = useState<{
+    user: User | null;
+    loading: boolean;
+  }>(() => {
+    const stored = localStorage.getItem("afk_user");
+    return {
+      user: stored ? JSON.parse(stored) : null,
+      loading: false,
+    };
   });
 
   /* -----------------------------
-     Initialize from storage
+     Internal State Helpers
   --------------------------------*/
-  useEffect(() => {
-    const stored = localStorage.getItem("afk_user");
-    const parsed = stored ? JSON.parse(stored) : null;
 
-    dispatch({ type: "INIT", payload: parsed });
-  }, []);
+  function setUser(user: User | null) {
+    setAuthState((prev) => ({
+      ...prev,
+      user,
+    }));
+  }
 
-  /* -----------------------------
-     Shared Auth Handler
-  --------------------------------*/
-  async function performAuth(
-    endpoint: string,
-    body: unknown,
-  ): Promise<void> {
-    const url = makeURL(baseURL, endpoint);
-
-    const res = await httpJSON<StandardAuthResponse>(url, {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-
-    // persist
+  function persistSession(res: StandardAuthResponse) {
     setStoredAccessToken(res.accessToken);
     localStorage.setItem("afk_user", JSON.stringify(res.user));
+    setUser(res.user);
+  }
 
-    dispatch({ type: "AUTH_SUCCESS", payload: res.user });
-
-    onLoginSuccess?.();
+  function clearSession() {
+    setStoredAccessToken(null);
+    localStorage.removeItem("afk_user");
+    setUser(null);
   }
 
   /* -----------------------------
-     Public Methods
+     Auth Methods
   --------------------------------*/
 
-  const login: AuthContextType["login"] = (email, password) => {
-    return performAuth(endpoints.login, { email, password });
-  };
+  async function login(email: string, password: string) {
+    const url = makeURL(baseURL, endpoints.login);
 
-  const signup: AuthContextType["signup"] = (payload) => {
-    return performAuth(endpoints.signup, payload);
-  };
+    const res = await httpJSON<StandardAuthResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
 
-  const logout = () => {
-    setStoredAccessToken(null);
-    localStorage.removeItem("afk_user");
+    persistSession(res);
+    onLoginSuccess?.();
+  }
 
-    dispatch({ type: "LOGOUT" });
+  async function signup(payload: unknown) {
+    const url = makeURL(baseURL, endpoints.signup);
 
+    const res = await httpJSON<StandardAuthResponse>(url, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    persistSession(res);
+    onLoginSuccess?.();
+  }
+
+  function logout() {
+    clearSession();
     onLogout?.();
-  };
+  }
 
-  const getToken = () => getStoredAccessToken();
+  function getToken() {
+    return getStoredAccessToken();
+  }
 
   /* -----------------------------
-     Memoized Context Value
+     Memoized Context
   --------------------------------*/
 
   const value = useMemo<AuthContextType>(
     () => ({
-      user: state.user,
-      loading: state.loading,
+      user: authState.user,
+      loading: authState.loading,
       login,
       signup,
       logout,
       getToken,
       config,
     }),
-    [state, config],
+    [authState, config],
   );
 
   return (
