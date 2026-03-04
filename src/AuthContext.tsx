@@ -1,11 +1,13 @@
 /*
 Developers using this library should wrap their app with:
-  <AuthProvider config={...}>
-    <App />
-  </AuthProvider>
+
+<AuthProvider config={...}>
+  <App />
+</AuthProvider>
 
 Then they can access auth anywhere with:
-  const { user, login, logout, getToken } = useAuth();
+
+const { user, login, logout, getToken } = useAuth();
 */
 
 import React, {
@@ -14,6 +16,7 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  PropsWithChildren,
 } from "react";
 
 import {
@@ -30,9 +33,17 @@ import {
   getStoredAccessToken,
 } from "./http";
 
+/* -------------------------------------------------------
+   Context
+------------------------------------------------------- */
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function useAuth(): AuthContextType {
+/* -------------------------------------------------------
+   Hook
+------------------------------------------------------- */
+
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
 
   if (!context) {
@@ -40,12 +51,17 @@ export function useAuth(): AuthContextType {
   }
 
   return context;
-}
+};
 
-export function AuthProvider({
-  config,
-  children,
-}: React.PropsWithChildren<{ config: AuthProviderConfig }>) {
+/* -------------------------------------------------------
+   Provider
+------------------------------------------------------- */
+
+type Props = PropsWithChildren<{
+  config: AuthProviderConfig;
+}>;
+
+export function AuthProvider({ config, children }: Props) {
   const { baseURL, endpoints, onLoginSuccess, onLogout } = config;
 
   const [user, setUser] = useState<User | null>(null);
@@ -53,44 +69,20 @@ export function AuthProvider({
 
   const getToken = () => getStoredAccessToken();
 
-  // -----------------------
-  // Local persistence helpers
-  // -----------------------
-
-  const storeSession = (res: StandardAuthResponse) => {
-    setStoredAccessToken(res.accessToken);
-    localStorage.setItem("afk_user", JSON.stringify(res.user));
-    setUser(res.user);
-  };
-
-  const clearSession = () => {
-    setStoredAccessToken(null);
-    localStorage.removeItem("afk_user");
-    setUser(null);
-  };
-
-  // -----------------------
-  // Restore user on load
-  // -----------------------
-
+  /* Restore session from localStorage on startup */
   useEffect(() => {
     const stored = localStorage.getItem("afk_user");
 
     if (stored) {
-      try {
-        const parsed: User = JSON.parse(stored);
-        setUser(parsed);
-      } catch {
-        localStorage.removeItem("afk_user");
-      }
+      setUser(JSON.parse(stored));
     }
 
     setLoading(false);
   }, []);
 
-  // -----------------------
-  // Auth actions
-  // -----------------------
+  /* ---------------------------
+     LOGIN
+  --------------------------- */
 
   const login: AuthContextType["login"] = async (email, password) => {
     const url = makeURL(baseURL, endpoints.login);
@@ -100,12 +92,16 @@ export function AuthProvider({
       body: JSON.stringify({ email, password }),
     });
 
-    storeSession(response);
+    setStoredAccessToken(response.accessToken);
+    localStorage.setItem("afk_user", JSON.stringify(response.user));
+    setUser(response.user);
 
-    if (onLoginSuccess) {
-      onLoginSuccess();
-    }
+    onLoginSuccess?.();
   };
+
+  /* ---------------------------
+     SIGNUP
+  --------------------------- */
 
   const signup: AuthContextType["signup"] = async (payload) => {
     const url = makeURL(baseURL, endpoints.signup);
@@ -115,27 +111,31 @@ export function AuthProvider({
       body: JSON.stringify(payload),
     });
 
-    storeSession(response);
+    setStoredAccessToken(response.accessToken);
+    localStorage.setItem("afk_user", JSON.stringify(response.user));
+    setUser(response.user);
 
-    if (onLoginSuccess) {
-      onLoginSuccess();
-    }
+    onLoginSuccess?.();
   };
+
+  /* ---------------------------
+     LOGOUT
+  --------------------------- */
 
   const logout = () => {
-    clearSession();
+    setStoredAccessToken(null);
+    localStorage.removeItem("afk_user");
+    setUser(null);
 
-    if (onLogout) {
-      onLogout();
-    }
+    onLogout?.();
   };
 
-  // -----------------------
-  // Context value
-  // -----------------------
+  /* ---------------------------
+     Context value
+  --------------------------- */
 
-  const value = useMemo<AuthContextType>(() => {
-    return {
+  const value = useMemo<AuthContextType>(
+    () => ({
       user,
       loading,
       login,
@@ -143,8 +143,9 @@ export function AuthProvider({
       logout,
       getToken,
       config,
-    };
-  }, [user, loading, config]);
+    }),
+    [user, loading, config],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
