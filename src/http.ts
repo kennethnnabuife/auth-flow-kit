@@ -17,14 +17,15 @@
 */
 
 export function makeURL(baseURL: string, path: string) {
-  const base = baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL;
-  const endpoint = path.startsWith("/") ? path : `/${path}`;
-  return base + endpoint;
+  const cleanedBase = baseURL.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${cleanedBase}${normalizedPath}`;
 }
 
 export function getStoredAccessToken(): string | null {
   try {
-    return localStorage.getItem("afk_access_token") ?? null;
+    const token = localStorage.getItem("afk_access_token");
+    return token;
   } catch {
     return null;
   }
@@ -32,13 +33,13 @@ export function getStoredAccessToken(): string | null {
 
 export function setStoredAccessToken(token: string | null) {
   try {
-    if (token) {
+    if (token !== null) {
       localStorage.setItem("afk_access_token", token);
-      return;
+    } else {
+      localStorage.removeItem("afk_access_token");
     }
-    localStorage.removeItem("afk_access_token");
   } catch {
-    // Ignore storage errors (Safari private mode etc.)
+    // Ignore storage-related failures (Safari private mode etc.)
   }
 }
 
@@ -47,39 +48,43 @@ export async function httpJSON<T>(
   opts: RequestInit = {},
   withAuth = false,
 ): Promise<T> {
-  const headers: Record<string, string> = {
+  const baseHeaders: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (withAuth) {
     const token = getStoredAccessToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      baseHeaders["Authorization"] = `Bearer ${token}`;
+    }
   }
 
   const response = await fetch(url, {
     ...opts,
     headers: {
-      ...headers,
+      ...baseHeaders,
       ...(opts.headers || {}),
     },
   });
 
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
-    const type = response.headers.get("content-type") ?? "";
+    const contentType = response.headers.get("content-type") || "";
 
     // Backend returned JSON error
-    if (type.includes("application/json")) {
+    if (contentType.includes("application/json")) {
       try {
-        const body = await response.json();
-        if (body?.message) message = body.message;
+        const data = await response.json();
+        if (data?.message) {
+          message = data.message;
+        }
       } catch {
-        // Ignore parse errors for now
+        // Ignore JSON parse errors
       }
     }
 
     // Backend returned HTML (Express default error pages)
-    if (type.includes("text/html")) {
+    if (contentType.includes("text/html")) {
       if (response.status === 404 && url.includes("forgot")) {
         message =
           "The forgot password endpoint you added in config.endpoints.forgot does not exist in your server. Please check and update your config.endpoints.forgot";
@@ -105,5 +110,5 @@ export async function httpJSON<T>(
     throw new Error(message);
   }
 
-  return (await response.json()) as T;
+  return response.json() as Promise<T>;
 }
