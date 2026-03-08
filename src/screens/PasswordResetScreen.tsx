@@ -38,6 +38,7 @@ export default function PasswordResetScreen() {
         borderRadius: 20,
         fontFamily: "Inter, sans-serif",
 
+        // GLASS EFFECT
         background: "rgba(255, 255, 255, 0.25)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
