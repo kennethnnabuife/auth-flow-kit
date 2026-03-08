@@ -5,11 +5,95 @@ import PasswordResetScreen from "./PasswordResetScreen";
 
 export default function LoginScreen() {
   const { login } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showReset, setShowReset] = useState(false);
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.border = "1px solid #4b4bff";
+    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.border = "1px solid #d2d2d2";
+    e.currentTarget.style.boxShadow = "0 0 0 transparent";
+  };
+
+  const validateFields = (trimmedEmail: string, trimmedPassword: string) => {
+    if (!trimmedEmail || !trimmedPassword) {
+      setError("Email and password cannot be empty.");
+      setSubmitting(false);
+      return false;
+    }
+    return true;
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setSubmitting(true);
+    setError(null);
+
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!validateFields(trimmedEmail, trimmedPassword)) return;
+
+    try {
+      await login(trimmedEmail, trimmedPassword);
+    } catch (err: any) {
+      setError(err?.message || "Login failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderInput = (
+    label: string,
+    value: string,
+    setter: (v: string) => void,
+    type: string,
+    placeholder: string,
+  ) => (
+    <div style={{ position: "relative", marginBottom: 26 }}>
+      <label
+        style={{
+          position: "absolute",
+          top: "-10px",
+          left: "14px",
+          background: "rgba(255,255,255,0.8)",
+          padding: "0 6px",
+          fontSize: 13,
+          color: "#444",
+          borderRadius: 6,
+        }}
+      >
+        {label}
+      </label>
+
+      <input
+        value={value}
+        onChange={(e) => setter(e.target.value)}
+        type={type}
+        placeholder={placeholder}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        style={{
+          width: "80%",
+          padding: "14px 16px",
+          borderRadius: 12,
+          border: "1px solid #d2d2d2",
+          fontSize: 15,
+          outline: "none",
+          transition: "0.25s",
+          background: "rgba(255,255,255,0.85)",
+        }}
+      />
+    </div>
+  );
 
   if (showReset) {
     return (
@@ -32,30 +116,6 @@ export default function LoginScreen() {
     );
   }
 
-  // Submit
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
-
-    if (!trimmedEmail || !trimmedPassword) {
-      setError("Email and password cannot be empty.");
-      setSubmitting(false);
-      return;
-    }
-
-    try {
-      await login(trimmedEmail, trimmedPassword);
-    } catch (err: any) {
-      setError(err?.message || "Login failed");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <form
       onSubmit={onSubmit}
@@ -65,11 +125,9 @@ export default function LoginScreen() {
         padding: 32,
         borderRadius: 20,
         fontFamily: "Inter, sans-serif",
-
         background: "rgba(255, 255, 255, 0.25)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
-
         boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
         border: "1px solid rgba(255,255,255,0.4)",
         animation: "fadeIn 0.3s ease",
@@ -88,89 +146,9 @@ export default function LoginScreen() {
         Welcome Back 👋
       </h2>
 
-      <div style={{ position: "relative", marginBottom: 26 }}>
-        <label
-          style={{
-            position: "absolute",
-            top: "-10px",
-            left: "14px",
-            background: "rgba(255,255,255,0.8)",
-            padding: "0 6px",
-            fontSize: 13,
-            color: "#444",
-            borderRadius: 6,
-          }}
-        >
-          Email
-        </label>
+      {renderInput("Email", email, setEmail, "email", "you@example.com")}
 
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          placeholder="you@example.com"
-          style={{
-            width: "80%",
-            padding: "14px 16px",
-            borderRadius: 12,
-            border: "1px solid #d2d2d2",
-            fontSize: 15,
-            outline: "none",
-            transition: "0.25s",
-            background: "rgba(255,255,255,0.85)",
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.border = "1px solid #4b4bff";
-            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.border = "1px solid #d2d2d2";
-            e.currentTarget.style.boxShadow = "0 0 0 transparent";
-          }}
-        />
-      </div>
-
-      <div style={{ position: "relative", marginBottom: 10 }}>
-        <label
-          style={{
-            position: "absolute",
-            top: "-10px",
-            left: "14px",
-            background: "rgba(255,255,255,0.8)",
-            padding: "0 6px",
-            fontSize: 13,
-            color: "#444",
-            borderRadius: 6,
-          }}
-        >
-          Password
-        </label>
-
-        <input
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="password"
-          placeholder="••••••••"
-          style={{
-            width: "80%",
-            padding: "14px 16px",
-            borderRadius: 12,
-            border: "1px solid #d2d2d2",
-            fontSize: 15,
-            outline: "none",
-            transition: "0.25s",
-            background: "rgba(255,255,255,0.85)",
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.border = "1px solid #4b4bff";
-            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.border = "1px solid #d2d2d2";
-            e.currentTarget.style.boxShadow = "0 0 0 transparent";
-          }}
-        />
-      </div>
+      {renderInput("Password", password, setPassword, "password", "••••••••")}
 
       <p
         onClick={() => setShowReset(true)}
@@ -192,11 +170,9 @@ export default function LoginScreen() {
           width: "100%",
           padding: "14px 20px",
           borderRadius: 12,
-
           background: submitting
             ? "linear-gradient(90deg, #b2bdfd, #8da0ff)"
             : "linear-gradient(90deg, #5353aaff, #060f22ff)",
-
           color: "white",
           border: "none",
           fontSize: 16,

@@ -1,6 +1,6 @@
 {
   "name": "@kendevelops/auth-flow-kit",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "private": false,
   "type": "module",
   "main": "./dist/index.cjs",
