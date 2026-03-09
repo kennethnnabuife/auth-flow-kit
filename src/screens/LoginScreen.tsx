@@ -5,36 +5,26 @@ import PasswordResetScreen from "./PasswordResetScreen";
 
 export default function LoginScreen() {
   const { login } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showReset, setShowReset] = useState(false);
 
-  if (showReset) {
-    return (
-      <div style={{ animation: "fade .2s" }}>
-        <PasswordResetScreen />
-        <p
-          onClick={() => setShowReset(false)}
-          style={{
-            marginTop: 16,
-            textAlign: "center",
-            fontSize: 14,
-            color: "#4b4bff",
-            cursor: "pointer",
-            textDecoration: "underline",
-          }}
-        >
-          Back to login
-        </p>
-      </div>
-    );
-  }
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.border = "1px solid #4b4bff";
+    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
+  };
 
-  // Submit
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.border = "1px solid #d2d2d2";
+    e.currentTarget.style.boxShadow = "0 0 0 transparent";
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     setSubmitting(true);
     setError(null);
 
@@ -56,6 +46,50 @@ export default function LoginScreen() {
     }
   };
 
+  if (showReset) {
+    return (
+      <div style={{ animation: "fade .2s" }}>
+        <PasswordResetScreen />
+
+        <p
+          onClick={() => setShowReset(false)}
+          style={{
+            marginTop: 16,
+            textAlign: "center",
+            fontSize: 14,
+            color: "#4b4bff",
+            cursor: "pointer",
+            textDecoration: "underline",
+          }}
+        >
+          Back to login
+        </p>
+      </div>
+    );
+  }
+
+  const inputBaseStyle = {
+    width: "80%",
+    padding: "14px 16px",
+    borderRadius: 12,
+    border: "1px solid #d2d2d2",
+    fontSize: 15,
+    outline: "none",
+    transition: "0.25s",
+    background: "rgba(255,255,255,0.85)",
+  };
+
+  const labelStyle = {
+    position: "absolute" as const,
+    top: "-10px",
+    left: "14px",
+    background: "rgba(255,255,255,0.8)",
+    padding: "0 6px",
+    fontSize: 13,
+    color: "#444",
+    borderRadius: 6,
+  };
+
   return (
     <form
       onSubmit={onSubmit}
@@ -65,11 +99,9 @@ export default function LoginScreen() {
         padding: 32,
         borderRadius: 20,
         fontFamily: "Inter, sans-serif",
-
         background: "rgba(255, 255, 255, 0.25)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
-
         boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
         border: "1px solid rgba(255,255,255,0.4)",
         animation: "fadeIn 0.3s ease",
@@ -89,86 +121,30 @@ export default function LoginScreen() {
       </h2>
 
       <div style={{ position: "relative", marginBottom: 26 }}>
-        <label
-          style={{
-            position: "absolute",
-            top: "-10px",
-            left: "14px",
-            background: "rgba(255,255,255,0.8)",
-            padding: "0 6px",
-            fontSize: 13,
-            color: "#444",
-            borderRadius: 6,
-          }}
-        >
-          Email
-        </label>
+        <label style={labelStyle}>Email</label>
 
         <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
           type="email"
           placeholder="you@example.com"
-          style={{
-            width: "80%",
-            padding: "14px 16px",
-            borderRadius: 12,
-            border: "1px solid #d2d2d2",
-            fontSize: 15,
-            outline: "none",
-            transition: "0.25s",
-            background: "rgba(255,255,255,0.85)",
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.border = "1px solid #4b4bff";
-            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.border = "1px solid #d2d2d2";
-            e.currentTarget.style.boxShadow = "0 0 0 transparent";
-          }}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={inputBaseStyle}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         />
       </div>
 
       <div style={{ position: "relative", marginBottom: 10 }}>
-        <label
-          style={{
-            position: "absolute",
-            top: "-10px",
-            left: "14px",
-            background: "rgba(255,255,255,0.8)",
-            padding: "0 6px",
-            fontSize: 13,
-            color: "#444",
-            borderRadius: 6,
-          }}
-        >
-          Password
-        </label>
+        <label style={labelStyle}>Password</label>
 
         <input
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
           type="password"
           placeholder="••••••••"
-          style={{
-            width: "80%",
-            padding: "14px 16px",
-            borderRadius: 12,
-            border: "1px solid #d2d2d2",
-            fontSize: 15,
-            outline: "none",
-            transition: "0.25s",
-            background: "rgba(255,255,255,0.85)",
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.border = "1px solid #4b4bff";
-            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(75,75,255,0.25)";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.border = "1px solid #d2d2d2";
-            e.currentTarget.style.boxShadow = "0 0 0 transparent";
-          }}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={inputBaseStyle}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         />
       </div>
 
@@ -186,17 +162,15 @@ export default function LoginScreen() {
       </p>
 
       <button
-        disabled={submitting}
         type="submit"
+        disabled={submitting}
         style={{
           width: "100%",
           padding: "14px 20px",
           borderRadius: 12,
-
           background: submitting
             ? "linear-gradient(90deg, #b2bdfd, #8da0ff)"
             : "linear-gradient(90deg, #5353aaff, #060f22ff)",
-
           color: "white",
           border: "none",
           fontSize: 16,
