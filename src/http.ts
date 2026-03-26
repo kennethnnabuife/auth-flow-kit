@@ -35,7 +35,7 @@ export function setStoredAccessToken(token: string | null) {
     if (token) localStorage.setItem("afk_access_token", token);
     else localStorage.removeItem("afk_access_token");
   } catch {
-    // Gonna ignore storage errors (Safari private mode, etc.) for now, not exactly needed.
+    // ignore storage errors (Safari private mode, etc.) for now, not exactly needed.
   }
 }
 
@@ -68,7 +68,7 @@ export async function httpJSON<T>(
         const data = await res.json();
         if (data?.message) message = data.message;
       } catch {
-        // ignore JSON parse errors, cos not important to me now
+        // ignore JSON parse errors, can come back later
       }
     }
 
