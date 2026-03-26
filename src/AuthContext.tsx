@@ -1,11 +1,13 @@
-/* 
+/*
 Developers using this library should wrap their app with:
-  <AuthProvider config={...}>
-    <App />
-  </AuthProvider>
- 
-  Then they can access auth anywhere with:
-  const { user, login, logout, getToken } = useAuth();
+
+<AuthProvider config={...}>
+  <App />
+</AuthProvider>
+
+Then they can access auth anywhere with:
+
+const { user, login, logout, getToken } = useAuth();
 */
 
 import React, {
@@ -70,7 +72,6 @@ export function AuthProvider({
     // store token + user
     setStoredAccessToken(res.accessToken);
     localStorage.setItem("afk_user", JSON.stringify(res.user));
-
     setUser(res.user);
 
     if (onLoginSuccess) onLoginSuccess();
@@ -87,7 +88,6 @@ export function AuthProvider({
 
     setStoredAccessToken(res.accessToken);
     localStorage.setItem("afk_user", JSON.stringify(res.user));
-
     setUser(res.user);
 
     if (onLoginSuccess) onLoginSuccess();
