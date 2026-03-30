@@ -1,30 +1,30 @@
 /*
- This file contains the low-level HTTP utilities used internally by
- auth-flow-kit to communicate with the backend.
+  Internal HTTP helpers for auth-flow-kit.
 
- It provides:
-  - makeURL: safely joins baseURL + endpoint path
-  - getStoredAccessToken: reads the JWT from localStorage
-  - setStoredAccessToken: stores/removes the JWT
-  - httpJSON: wrapper around fetch with JSON + optional auth header
+  Responsibilities:
+    • Construct safe URLs (makeURL)
+    • Persist access token (get/set)
+    • Perform JSON requests with optional auth (httpJSON)
 
- NOTES FOR DEVELOPERS USING THE LIBRARY:
- You do NOT need to import or modify anything in this file.
- It is an internal helper used by the AuthProvider and auth screens.
+  ⚠️ Library users should NOT import this directly.
+  Used internally by AuthProvider + auth UI.
 
- This keeps the library lightweight, predictable,
- and familiar to developers used to Redux Toolkit-style authentication.
+  Design goals:
+    - predictable
+    - minimal
+    - RTK-style familiarity
 */
 
 export function makeURL(baseURL: string, path: string) {
-  return `${baseURL.replace(/\/$/, "")}${
-    path.startsWith("/") ? path : `/${path}`
-  }`;
+  const cleanedBase = baseURL.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${cleanedBase}${normalizedPath}`;
 }
 
 export function getStoredAccessToken(): string | null {
   try {
-    return localStorage.getItem("afk_access_token");
+    const token = localStorage.getItem("afk_access_token");
+    return token;
   } catch {
     return null;
   }
@@ -32,10 +32,14 @@ export function getStoredAccessToken(): string | null {
 
 export function setStoredAccessToken(token: string | null) {
   try {
-    if (token) localStorage.setItem("afk_access_token", token);
-    else localStorage.removeItem("afk_access_token");
+    if (!token) {
+      localStorage.removeItem("afk_access_token");
+      return;
+    }
+
+    localStorage.setItem("afk_access_token", token);
   } catch {
-    // ignore storage errors (Safari private mode, etc.) for now, not exactly needed.
+    // Swallow storage issues (e.g. private mode)
   }
 }
 
@@ -44,60 +48,67 @@ export async function httpJSON<T>(
   opts: RequestInit = {},
   withAuth = false,
 ): Promise<T> {
-  const headers: Record<string, string> = {
+  const baseHeaders: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (withAuth) {
-    const tok = getStoredAccessToken();
-    if (tok) headers["Authorization"] = `Bearer ${tok}`;
+    const token = getStoredAccessToken();
+    if (token) {
+      baseHeaders["Authorization"] = `Bearer ${token}`;
+    }
   }
 
-  const res = await fetch(url, {
+  const response = await fetch(url, {
     ...opts,
-    headers: { ...headers, ...(opts.headers || {}) },
+    headers: {
+      ...baseHeaders,
+      ...(opts.headers ?? {}),
+    },
   });
 
-  if (!res.ok) {
-    let message = `Request failed (${res.status})`;
-    const contentType = res.headers.get("content-type") || "";
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type") ?? "";
+    let errorMessage = `Request failed (${response.status})`;
 
-    // Backend returned JSON error
+    // JSON error handling
     if (contentType.includes("application/json")) {
       try {
-        const data = await res.json();
-        if (data?.message) message = data.message;
+        const payload = await response.json();
+        if (payload?.message) {
+          errorMessage = payload.message;
+        }
       } catch {
-        // ignore JSON parse errors, can come back later
+        // ignore malformed JSON
       }
     }
 
-    // Backend returned HTML (Express default error pages)
+    // HTML fallback (common in Express)
     if (contentType.includes("text/html")) {
-      if (res.status === 404 && url.includes("forgot")) {
-        message =
+      if (response.status === 404 && url.includes("forgot")) {
+        errorMessage =
           "The forgot password endpoint you added in config.endpoints.forgot does not exist in your server. Please check and update your config.endpoints.forgot";
       } else {
-        message = "Unexpected server error";
+        errorMessage = "Unexpected server error";
       }
     }
 
-    // Developer-only guidance
-    if (res.status === 404 && url.includes("forgot")) {
+    // Dev hint for common misconfig
+    if (response.status === 404 && url.includes("forgot")) {
       console.error(
         `[auth-flow-kit] Password reset endpoint not found.
 
-        Expected a POST route matching:
-          ${url}
+Expected POST route:
+  ${url}
 
-        Fix this by either:
-        - Adding the route on your backend, or
-        - Updating config.endpoints.forgot`,
+Fix by:
+  • Adding the endpoint on your backend
+  • OR updating config.endpoints.forgot`,
       );
     }
 
-    throw new Error(message);
+    throw new Error(errorMessage);
   }
 
-  return res.json() as Promise<T>;
+  return response.json() as Promise<T>;
 }
